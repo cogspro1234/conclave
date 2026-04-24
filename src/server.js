@@ -89,7 +89,10 @@ function runCli({ command, args, stdin }) {
 
 async function askCodex(prompt, model) {
   const m = model ?? DEFAULT_CODEX_MODEL;
-  const args = ["exec"];
+  // --skip-git-repo-check: codex exec otherwise requires the cwd to be a git repo (or a
+  // pre-trusted dir, but headless mode appears to ignore the trust list anyway). The conclave
+  // never has Codex touch files, so the git-repo guard is pure friction here.
+  const args = ["exec", "--skip-git-repo-check"];
   if (m) args.push("-c", `model="${m}"`);
   args.push("-");
   return runCli({ command: CODEX_CMD, args, stdin: prompt });
@@ -106,7 +109,7 @@ async function askGemini(prompt, model) {
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.3.0" },
+  { name: "conclave", version: "0.3.1" },
   { capabilities: { tools: {} } }
 );
 
