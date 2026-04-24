@@ -1,6 +1,6 @@
 {
   "name": "conclave",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An MCP server that lets one AI orchestrate a council of others. Claude convenes Codex and Gemini via their CLIs, deliberates, and reaches consensus.",
   "type": "module",
   "main": "src/server.js",

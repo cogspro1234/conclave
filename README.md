@@ -208,6 +208,9 @@ Long deliberations can exceed the 5-minute default. Bump `CONCLAVE_TIMEOUT_MS` (
 **Codex or Gemini asks to re-authenticate**
 Their session tokens expired. Run `codex` or `gemini` once interactively to refresh, then retry the conclave.
 
+**Gemini errors with `Please set an Auth method in your ~/.gemini/settings.json`**
+You launched `gemini` once but quit before picking an auth method, so headless mode has nothing to use. Run `gemini` interactively again, choose **"Login with Google"** (or whichever auth applies to your account) on the first prompt, complete the browser flow, and let it land on the chat screen — that step writes `~/.gemini/settings.json`. Exit (`Ctrl+C` or `/exit`) and retry the conclave.
+
 **"Rate limit exceeded" from Codex or Gemini**
 You've hit your subscription's per-window quota. Wait it out or upgrade the plan. Conclave deliberations are 2× more expensive than a normal chat (one call per model per round), so they burn quota faster than you'd expect.
 

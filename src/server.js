@@ -28,9 +28,27 @@ const CODEX_CMD = process.env.CONCLAVE_CODEX_CMD ?? (isWindows ? "codex.cmd" : "
 const GEMINI_CMD = process.env.CONCLAVE_GEMINI_CMD ?? (isWindows ? "gemini.cmd" : "gemini");
 const TIMEOUT_MS = Number.parseInt(process.env.CONCLAVE_TIMEOUT_MS ?? "300000", 10);
 
+function quoteForCmd(arg) {
+  // Wrap every arg in double quotes; escape internal " as \".
+  // Sufficient for our flags + literal markers (no user content goes through args — prompts use stdin).
+  return `"${String(arg).replace(/"/g, '\\"')}"`;
+}
+
 function runCli({ command, args, stdin }) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
+    let proc;
+    if (isWindows) {
+      // Node ≥ 18.20.2 / 20.12.2 blocks spawning .cmd/.bat shims directly (CVE-2024-27980).
+      // Wrap in cmd.exe ourselves and pass the assembled command line verbatim.
+      const cmdLine = [command, ...args.map(quoteForCmd)].join(" ");
+      proc = spawn("cmd.exe", ["/d", "/s", "/c", cmdLine], {
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsVerbatimArguments: true,
+      });
+    } else {
+      proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
+    }
+
     let stdout = "";
     let stderr = "";
 
@@ -70,14 +88,17 @@ async function askCodex(prompt) {
 }
 
 async function askGemini(prompt) {
+  // -p is required to enter non-interactive mode; passing it empty plus the prompt on stdin
+  // keeps multiline / quoted prompts off the command line, where they'd require fragile shell escaping.
   return runCli({
     command: GEMINI_CMD,
-    args: ["-p", prompt, "-o", "text"],
+    args: ["-p", "", "-o", "text"],
+    stdin: prompt,
   });
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.1.0" },
+  { name: "conclave", version: "0.1.1" },
   { capabilities: { tools: {} } }
 );
 
