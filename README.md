@@ -61,7 +61,7 @@ gemini --version
 ### 3. Clone and install conclave
 
 ```bash
-git clone https://github.com/<your-handle>/conclave.git
+git clone https://github.com/cogspro1234/conclave.git
 cd conclave
 npm install
 ```
