@@ -101,15 +101,16 @@ async function askCodex(prompt, model) {
 async function askGemini(prompt, model) {
   // -p is required to enter non-interactive mode but rejects empty strings ("Not enough arguments following: p"),
   // so pass a one-char placeholder and put the real prompt on stdin (Gemini appends stdin to -p's value).
+  // --skip-trust trusts the current workspace for the session, mirroring askCodex's --skip-git-repo-check.
   const m = model ?? DEFAULT_GEMINI_MODEL;
-  const args = ["-p", "."];
+  const args = ["-p", ".", "--skip-trust"];
   if (m) args.push("-m", m);
   args.push("-o", "text");
   return runCli({ command: GEMINI_CMD, args, stdin: prompt });
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.3.1" },
+  { name: "conclave", version: "0.3.2" },
   { capabilities: { tools: {} } }
 );
 
