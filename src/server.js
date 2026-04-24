@@ -110,7 +110,7 @@ async function askGemini(prompt, model) {
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.4.0" },
+  { name: "conclave", version: "0.5.0" },
   { capabilities: { tools: {} } }
 );
 

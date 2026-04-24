@@ -30,8 +30,6 @@ Before you start, make sure you have:
 
 ## Installation
 
-The full setup is seven steps. Most of them are one-liners.
-
 ### 1. Install the Codex CLI and log in
 
 ```bash
@@ -58,7 +56,38 @@ Same idea: first run prompts a browser login with your Google account. Sign in, 
 gemini --version
 ```
 
-### 3. Clone and install conclave
+### 3. Install the conclave plugin
+
+Since v0.5.0 conclave is a Claude Code plugin — the MCP server, slash command, and helpers all install in one shot:
+
+```bash
+claude plugin add github:cogspro1234/conclave
+```
+
+Then restart Claude Code so the MCP server and slash command load.
+
+### 4. Verify
+
+Inside Claude Code:
+
+```bash
+claude mcp list
+```
+
+You should see `conclave: ✓ Connected`. Then try the slash command:
+
+```
+/conclave say hello in one short sentence
+```
+
+Claude commits to its own initial position, calls Codex and Gemini in parallel, runs a rebuttal round, and synthesizes a verdict. If you see three distinct voices in the synthesis, you're done.
+
+### Manual install (advanced / pre-v0.5.0)
+
+If you don't want to use Claude Code's plugin system — or you're on a version of Claude Code without it — clone the repo and wire the components manually:
+
+<details>
+<summary>Click to expand manual install instructions</summary>
 
 ```bash
 git clone https://github.com/cogspro1234/conclave.git
@@ -66,82 +95,35 @@ cd conclave
 npm install
 ```
 
-This pulls down the MCP SDK and ~90 transitive deps (~10 seconds).
-
-### 4. Register the MCP server with Claude Code
-
-Use the **absolute path** to `src/server.js` and `--scope user` so it works from every project:
-
-**macOS / Linux:**
+Register the MCP server (use `--scope user` so it works from every project):
 
 ```bash
+# macOS / Linux
 claude mcp add --scope user conclave -- node "$(pwd)/src/server.js"
-```
 
-**Windows (Git Bash):**
-
-```bash
+# Windows (Git Bash)
 claude mcp add --scope user conclave -- node "$(pwd -W)/src/server.js"
-```
 
-**Windows (PowerShell):**
-
-```powershell
+# Windows (PowerShell)
 claude mcp add --scope user conclave -- node "$((Get-Location).Path -replace '\\','/')/src/server.js"
 ```
 
-If you skip `--scope user`, the server is only visible inside the `conclave/` directory.
-
-### 5. Install the `/conclave` slash command
-
-The slash command file is bundled at [`commands/conclave.md`](./commands/conclave.md). Copy it to Claude Code's user-scope commands folder so it's available in every project:
-
-**macOS / Linux:**
+Copy the slash command into user scope:
 
 ```bash
-mkdir -p ~/.claude/commands
-cp commands/conclave.md ~/.claude/commands/
+# macOS / Linux
+mkdir -p ~/.claude/commands && cp commands/conclave.md ~/.claude/commands/
+
+# Windows (Git Bash)
+mkdir -p "$USERPROFILE/.claude/commands" && cp commands/conclave.md "$USERPROFILE/.claude/commands/"
+
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands" | Out-Null; Copy-Item commands\conclave.md "$env:USERPROFILE\.claude\commands\"
 ```
 
-**Windows (Git Bash):**
+Restart Claude Code, then run `claude mcp list` to verify.
 
-```bash
-mkdir -p "$USERPROFILE/.claude/commands"
-cp commands/conclave.md "$USERPROFILE/.claude/commands/"
-```
-
-**Windows (PowerShell):**
-
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands" | Out-Null
-Copy-Item commands\conclave.md "$env:USERPROFILE\.claude\commands\"
-```
-
-### 6. Restart Claude Code
-
-MCP servers and slash commands are loaded at session start. Quit any running Claude Code session and start a new one.
-
-### 7. Verify
-
-Inside Claude Code, run:
-
-```bash
-claude mcp list
-```
-
-You should see:
-
-```
-conclave: node /…/conclave/src/server.js - ✓ Connected
-```
-
-Then try the slash command:
-
-```
-/conclave say hello in one short sentence
-```
-
-Claude should call both Codex and Gemini, get a one-line greeting from each, and synthesize. If you see two distinct voices in the synthesis, you're done.
+</details>
 
 ## Usage
 
