@@ -1,0 +1,17 @@
+{
+  "name": "conclave",
+  "description": "Single-plugin marketplace for the conclave multi-model deliberation orchestrator.",
+  "owner": {
+    "name": "Çağan Öncül",
+    "url": "https://github.com/cogspro1234"
+  },
+  "plugins": [
+    {
+      "name": "conclave",
+      "source": {
+        "source": "github",
+        "repo": "cogspro1234/conclave"
+      }
+    }
+  ]
+}
