@@ -77,7 +77,7 @@ claude mcp list
 You should see `conclave: ✓ Connected`. Then try the slash command:
 
 ```
-/conclave say hello in one short sentence
+/conclave:convene say hello in one short sentence
 ```
 
 Claude commits to its own initial position, calls Codex and Gemini in parallel, runs a rebuttal round, and synthesizes a verdict. If you see three distinct voices in the synthesis, you're done.
@@ -112,13 +112,13 @@ Copy the slash command into user scope:
 
 ```bash
 # macOS / Linux
-mkdir -p ~/.claude/commands && cp commands/conclave.md ~/.claude/commands/
+mkdir -p ~/.claude/commands && cp commands/convene.md ~/.claude/commands/
 
 # Windows (Git Bash)
-mkdir -p "$USERPROFILE/.claude/commands" && cp commands/conclave.md "$USERPROFILE/.claude/commands/"
+mkdir -p "$USERPROFILE/.claude/commands" && cp commands/convene.md "$USERPROFILE/.claude/commands/"
 
 # Windows (PowerShell)
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands" | Out-Null; Copy-Item commands\conclave.md "$env:USERPROFILE\.claude\commands\"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\commands" | Out-Null; Copy-Item commands\convene.md "$env:USERPROFILE\.claude\commands\"
 ```
 
 Restart Claude Code, then run `claude mcp list` to verify.
@@ -127,13 +127,15 @@ Restart Claude Code, then run `claude mcp list` to verify.
 
 ## Usage
 
-The recommended way is the `/conclave` slash command:
+The recommended way is the `/conclave:convene` slash command (plugin install):
 
 ```
-/conclave should we use Postgres or SQLite for this side project?
+/conclave:convene should we use Postgres or SQLite for this side project?
 ```
 
-Claude will call `ask_codex` and `ask_gemini` in parallel, paraphrase each response back to the other model for a rebuttal round, then synthesize a final answer that surfaces real disagreements rather than papering over them.
+(If you used the manual install path, the command is just `/convene` — no namespace prefix since it lives directly at user scope.)
+
+Claude commits to its own initial position, then calls `ask_codex` and `ask_gemini` in parallel, paraphrases each response back to the other for a rebuttal round, then synthesizes a final answer that surfaces real disagreements rather than papering over them.
 
 Claude may also invoke the conclave when "conclave" comes up naturally in conversation (e.g. "let's take this to the conclave") — the slash command is just the explicit, documented entry point.
 
@@ -146,11 +148,11 @@ Since v0.4.0, the conclave is genuinely **three-way** — Claude (the orchestrat
 You can prefix the topic with optional flags (any order, can combine):
 
 ```
-/conclave --strong is this caching strategy correct?
-/conclave --fast quick sanity check on this regex
-/conclave --silent should we drop SQLite for Postgres
-/conclave --strong --silent fundamental architecture call: monolith or services
-/conclave just deliberate normally on whether to add a CI step
+/conclave:convene --strong is this caching strategy correct?
+/conclave:convene --fast quick sanity check on this regex
+/conclave:convene --silent should we drop SQLite for Postgres
+/conclave:convene --strong --silent fundamental architecture call: monolith or services
+/conclave:convene just deliberate normally on whether to add a CI step
 ```
 
 | Flag        | Effect                                                                        |
@@ -162,7 +164,7 @@ You can prefix the topic with optional flags (any order, can combine):
 
 Natural-language phrasing works too — `/conclave en güçlü modellerle: ...`, `/conclave hızlı bir check: ...`, `/conclave kararı doğrudan ver: ...`.
 
-The exact model strings above are baked into the slash command's body. To change them, edit `~/.claude/commands/conclave.md` after install. To pin a different default at the MCP-server level (so even calls with no flag use a specific model), see the `CONCLAVE_CODEX_MODEL` / `CONCLAVE_GEMINI_MODEL` env vars in [Configuration](#configuration).
+The exact model strings above are baked into the slash command's body. To change them, edit the installed copy (`~/.claude/plugins/cache/conclave/conclave/<version>/commands/convene.md` for plugin install, or `~/.claude/commands/convene.md` for manual install) — note that plugin-install edits get overwritten on the next `claude plugin update`, so for persistent changes, fork the repo. To pin a different default at the MCP-server level (so even calls with no flag use a specific model), see the `CONCLAVE_CODEX_MODEL` / `CONCLAVE_GEMINI_MODEL` env vars in [Configuration](#configuration).
 
 ## Configuration
 
