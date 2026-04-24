@@ -88,17 +88,18 @@ async function askCodex(prompt) {
 }
 
 async function askGemini(prompt) {
-  // -p is required to enter non-interactive mode; passing it empty plus the prompt on stdin
-  // keeps multiline / quoted prompts off the command line, where they'd require fragile shell escaping.
+  // -p is required to enter non-interactive mode but rejects empty strings ("Not enough arguments following: p"),
+  // so pass a one-char placeholder and put the real prompt on stdin (which Gemini appends to -p's value).
+  // This keeps multiline / quoted prompts off the command line where they'd require fragile shell escaping.
   return runCli({
     command: GEMINI_CMD,
-    args: ["-p", "", "-o", "text"],
+    args: ["-p", ".", "-o", "text"],
     stdin: prompt,
   });
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.1.1" },
+  { name: "conclave", version: "0.1.2" },
   { capabilities: { tools: {} } }
 );
 
