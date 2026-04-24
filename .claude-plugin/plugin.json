@@ -1,7 +1,7 @@
 {
   "name": "conclave",
   "description": "Multi-model deliberation: Claude convenes Codex and Gemini via their CLIs in parallel rounds, then synthesizes a verdict — like a papal conclave waiting for white smoke.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "Çağan Öncül",
     "url": "https://github.com/cogspro1234"
@@ -20,5 +20,11 @@
     "ai-orchestration",
     "llm",
     "deliberation"
-  ]
+  ],
+  "mcpServers": {
+    "conclave": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/src/server.js"]
+    }
+  }
 }
