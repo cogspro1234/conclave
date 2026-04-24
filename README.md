@@ -155,23 +155,30 @@ Claude will call `ask_codex` and `ask_gemini` in parallel, paraphrase each respo
 
 Claude may also invoke the conclave when "conclave" comes up naturally in conversation (e.g. "let's take this to the conclave") — the slash command is just the explicit, documented entry point.
 
-### Picking a tier
+### Three voices, not two
 
-You can prefix the topic with an optional flag to nudge model selection:
+Since v0.4.0, the conclave is genuinely **three-way** — Claude (the orchestrator) commits to its own initial position, then deliberates alongside Codex and Gemini, revising as it hears them out. The synthesis names who held which view rather than presenting a moderator's verdict from above.
+
+### Flags
+
+You can prefix the topic with optional flags (any order, can combine):
 
 ```
 /conclave --strong is this caching strategy correct?
 /conclave --fast quick sanity check on this regex
-/conclave just deliberate normally on whether to use Postgres or SQLite
+/conclave --silent should we drop SQLite for Postgres
+/conclave --strong --silent fundamental architecture call: monolith or services
+/conclave just deliberate normally on whether to add a CI step
 ```
 
-| Flag        | Codex            | Gemini                       | When                                                  |
-| ----------- | ---------------- | ---------------------------- | ----------------------------------------------------- |
-| `--strong`  | `gpt-5.5`        | `gemini-3-flash-preview`     | High-stakes calls, architectural decisions, debugging genuinely hard problems. |
-| `--fast`    | `gpt-5.4-mini`   | `gemini-2.5-flash-lite`      | Sanity checks, formatting questions, "is this obviously wrong?" |
-| _(none)_    | CLI default      | CLI default                  | Everyday deliberation. Don't overthink it.            |
+| Flag        | Effect                                                                        |
+| ----------- | ----------------------------------------------------------------------------- |
+| `--strong`  | Codex `gpt-5.5`, Gemini `gemini-3-flash-preview` — high-stakes calls.         |
+| `--fast`    | Codex `gpt-5.4-mini`, Gemini `gemini-2.5-flash-lite` — quick sanity checks.   |
+| `--silent`  | Suppress all interim narration. Tool calls still happen; you only see the final verdict. |
+| _(none)_    | Each CLI's default model, full deliberation transcript shown.                 |
 
-Natural-language phrasing also works — `/conclave en güçlü modellerle: ...` or `/conclave hızlı bir check: ...` both get parsed correctly.
+Natural-language phrasing works too — `/conclave en güçlü modellerle: ...`, `/conclave hızlı bir check: ...`, `/conclave kararı doğrudan ver: ...`.
 
 The exact model strings above are baked into the slash command's body. To change them, edit `~/.claude/commands/conclave.md` after install. To pin a different default at the MCP-server level (so even calls with no flag use a specific model), see the `CONCLAVE_CODEX_MODEL` / `CONCLAVE_GEMINI_MODEL` env vars in [Configuration](#configuration).
 
