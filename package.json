@@ -1,14 +1,16 @@
 {
   "name": "conclave",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "An MCP server that lets one AI orchestrate a council of others. Claude convenes Codex and Gemini via their CLIs, deliberates, and reaches consensus.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
-    "conclave": "src/server.js"
+    "conclave": "src/server.js",
+    "conclave-trust": "bin/conclave-trust.js"
   },
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "trust": "node bin/conclave-trust.js"
   },
   "engines": {
     "node": ">=18"

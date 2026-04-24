@@ -92,6 +92,8 @@ claude mcp add --scope user conclave -- node "$((Get-Location).Path -replace '\\
 
 If you skip `--scope user`, the server is only visible inside the `conclave/` directory.
 
+> **Codex trust:** Codex CLI refuses to start in directories you haven't trusted. By default conclave runs Codex from your home directory; if that isn't already trusted, you'll see a "directory is not trusted" error on first call. Quick fix: `npx conclave-trust ~` (or any other dir you'd rather use). See [Troubleshooting](#troubleshooting) for details.
+
 ### 5. Install the `/conclave` slash command
 
 The slash command file is bundled at [`commands/conclave.md`](./commands/conclave.md). Copy it to Claude Code's user-scope commands folder so it's available in every project:
@@ -236,7 +238,17 @@ Long deliberations can exceed the 5-minute default. Bump `CONCLAVE_TIMEOUT_MS` (
 Their session tokens expired. Run `codex` or `gemini` once interactively to refresh, then retry the conclave.
 
 **Codex errors with "directory is not trusted" (or similar)**
-Codex CLI refuses to operate in a directory you haven't explicitly trusted. By default, conclave runs Codex from your home directory (`~`), so trust that one once: `cd ~ && codex`, then accept the trust prompt and exit. If you'd rather not trust your whole home, point `CONCLAVE_TRUST_DIR` at any dir you have trusted. Conclave never asks Codex to read or write files in this directory — it's only there to satisfy the trust check.
+Codex CLI refuses to operate in a directory you haven't explicitly trusted. The fastest fix is the bundled helper:
+
+```bash
+npx conclave-trust ~                # trust your home directory (the conclave default)
+npx conclave-trust C:\              # trust the entire C: drive (Windows)
+npx conclave-trust /your/preferred/dir
+```
+
+It writes the appropriate `[projects.'<dir>']` entry into `~/.codex/config.toml` and prints the exact `claude mcp add` line to use, with `CONCLAVE_TRUST_DIR=<dir>` baked in. Re-register conclave with that command, restart Claude Code, done.
+
+If you'd rather do it manually: `cd <dir> && codex`, accept the trust prompt, then exit. Add `CONCLAVE_TRUST_DIR=<dir>` to your conclave MCP registration. Conclave never asks Codex to read or write files in this directory — it's only there to satisfy Codex's start-up trust check.
 
 **Gemini errors with `Please set an Auth method in your ~/.gemini/settings.json`**
 You launched `gemini` once but quit before picking an auth method, so headless mode has nothing to use. Run `gemini` interactively again, choose **"Login with Google"** (or whichever auth applies to your account) on the first prompt, complete the browser flow, and let it land on the chat screen — that step writes `~/.gemini/settings.json`. Exit (`Ctrl+C` or `/exit`) and retry the conclave.
