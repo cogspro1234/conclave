@@ -22,6 +22,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { spawn } from "node:child_process";
+import { homedir } from "node:os";
 
 const isWindows = process.platform === "win32";
 const CODEX_CMD = process.env.CONCLAVE_CODEX_CMD ?? (isWindows ? "codex.cmd" : "codex");
@@ -29,6 +30,10 @@ const GEMINI_CMD = process.env.CONCLAVE_GEMINI_CMD ?? (isWindows ? "gemini.cmd" 
 const TIMEOUT_MS = Number.parseInt(process.env.CONCLAVE_TIMEOUT_MS ?? "300000", 10);
 const DEFAULT_CODEX_MODEL = process.env.CONCLAVE_CODEX_MODEL ?? null;
 const DEFAULT_GEMINI_MODEL = process.env.CONCLAVE_GEMINI_MODEL ?? null;
+// Codex refuses to start in a directory that isn't on its trust list. The MCP server inherits
+// cwd from Claude Code, which can be any project. Force a stable, predictable cwd that the user
+// can trust once.
+const TRUST_DIR = process.env.CONCLAVE_TRUST_DIR ?? homedir();
 
 function quoteForCmd(arg) {
   // Wrap every arg in double quotes; escape internal " as \".
@@ -46,9 +51,10 @@ function runCli({ command, args, stdin }) {
       proc = spawn("cmd.exe", ["/d", "/s", "/c", cmdLine], {
         stdio: ["pipe", "pipe", "pipe"],
         windowsVerbatimArguments: true,
+        cwd: TRUST_DIR,
       });
     } else {
-      proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
+      proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], cwd: TRUST_DIR });
     }
 
     let stdout = "";
@@ -100,7 +106,7 @@ async function askGemini(prompt, model) {
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.2.0" },
+  { name: "conclave", version: "0.2.1" },
   { capabilities: { tools: {} } }
 );
 

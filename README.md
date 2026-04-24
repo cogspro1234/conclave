@@ -186,6 +186,7 @@ Optional environment variables:
 | `CONCLAVE_TIMEOUT_MS`    | `300000` (5 min)                         | Per-call timeout. Long deliberations may need more.  |
 | `CONCLAVE_CODEX_MODEL`   | _(unset → CLI default)_                  | Default Codex model when the tool is called without `model`. Per-call `model` arg still wins. |
 | `CONCLAVE_GEMINI_MODEL`  | _(unset → CLI default)_                  | Default Gemini model when the tool is called without `model`. Per-call `model` arg still wins. |
+| `CONCLAVE_TRUST_DIR`     | user's home directory (`~`)              | Working directory for spawned CLIs. Codex refuses to start in untrusted dirs; this should point at a directory you've already trusted via `codex` (run `cd ~/<dir> && codex` once and accept the trust prompt). |
 
 Set them in the MCP server entry. Example (`claude mcp add` supports `-e`):
 
@@ -233,6 +234,9 @@ Long deliberations can exceed the 5-minute default. Bump `CONCLAVE_TIMEOUT_MS` (
 
 **Codex or Gemini asks to re-authenticate**
 Their session tokens expired. Run `codex` or `gemini` once interactively to refresh, then retry the conclave.
+
+**Codex errors with "directory is not trusted" (or similar)**
+Codex CLI refuses to operate in a directory you haven't explicitly trusted. By default, conclave runs Codex from your home directory (`~`), so trust that one once: `cd ~ && codex`, then accept the trust prompt and exit. If you'd rather not trust your whole home, point `CONCLAVE_TRUST_DIR` at any dir you have trusted. Conclave never asks Codex to read or write files in this directory — it's only there to satisfy the trust check.
 
 **Gemini errors with `Please set an Auth method in your ~/.gemini/settings.json`**
 You launched `gemini` once but quit before picking an auth method, so headless mode has nothing to use. Run `gemini` interactively again, choose **"Login with Google"** (or whichever auth applies to your account) on the first prompt, complete the browser flow, and let it land on the chat screen — that step writes `~/.gemini/settings.json`. Exit (`Ctrl+C` or `/exit`) and retry the conclave.
