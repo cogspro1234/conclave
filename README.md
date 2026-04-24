@@ -155,6 +155,26 @@ Claude will call `ask_codex` and `ask_gemini` in parallel, paraphrase each respo
 
 Claude may also invoke the conclave when "conclave" comes up naturally in conversation (e.g. "let's take this to the conclave") — the slash command is just the explicit, documented entry point.
 
+### Picking a tier
+
+You can prefix the topic with an optional flag to nudge model selection:
+
+```
+/conclave --strong is this caching strategy correct?
+/conclave --fast quick sanity check on this regex
+/conclave just deliberate normally on whether to use Postgres or SQLite
+```
+
+| Flag        | Codex            | Gemini                       | When                                                  |
+| ----------- | ---------------- | ---------------------------- | ----------------------------------------------------- |
+| `--strong`  | `gpt-5.5`        | `gemini-3-flash-preview`     | High-stakes calls, architectural decisions, debugging genuinely hard problems. |
+| `--fast`    | `gpt-5.4-mini`   | `gemini-2.5-flash-lite`      | Sanity checks, formatting questions, "is this obviously wrong?" |
+| _(none)_    | CLI default      | CLI default                  | Everyday deliberation. Don't overthink it.            |
+
+Natural-language phrasing also works — `/conclave en güçlü modellerle: ...` or `/conclave hızlı bir check: ...` both get parsed correctly.
+
+The exact model strings above are baked into the slash command's body. To change them, edit `~/.claude/commands/conclave.md` after install. To pin a different default at the MCP-server level (so even calls with no flag use a specific model), see the `CONCLAVE_CODEX_MODEL` / `CONCLAVE_GEMINI_MODEL` env vars in [Configuration](#configuration).
+
 ## Configuration
 
 Optional environment variables:
@@ -164,6 +184,8 @@ Optional environment variables:
 | `CONCLAVE_CODEX_CMD`     | `codex.cmd` on Windows, `codex` else     | Path/name of the Codex CLI binary.                   |
 | `CONCLAVE_GEMINI_CMD`    | `gemini.cmd` on Windows, `gemini` else   | Path/name of the Gemini CLI binary.                  |
 | `CONCLAVE_TIMEOUT_MS`    | `300000` (5 min)                         | Per-call timeout. Long deliberations may need more.  |
+| `CONCLAVE_CODEX_MODEL`   | _(unset → CLI default)_                  | Default Codex model when the tool is called without `model`. Per-call `model` arg still wins. |
+| `CONCLAVE_GEMINI_MODEL`  | _(unset → CLI default)_                  | Default Gemini model when the tool is called without `model`. Per-call `model` arg still wins. |
 
 Set them in the MCP server entry. Example (`claude mcp add` supports `-e`):
 
@@ -175,13 +197,17 @@ claude mcp add --scope user conclave \
 
 ## Tools
 
-### `ask_codex`
+### `ask_codex(prompt, model?)`
 
 Forwards a prompt to `codex exec -` (stdin mode). Returns the CLI's stdout.
 
-### `ask_gemini`
+If `model` is provided, the server adds `-c model="<value>"` to override Codex's default. Otherwise it falls back to the `CONCLAVE_CODEX_MODEL` env var, then to whatever Codex itself defaults to.
 
-Forwards a prompt to `gemini -p <prompt> -o text`. Returns the CLI's stdout.
+### `ask_gemini(prompt, model?)`
+
+Forwards a prompt to `gemini -p . -o text` with the prompt piped on stdin. Returns the CLI's stdout.
+
+If `model` is provided, the server adds `-m <value>`. Otherwise it falls back to `CONCLAVE_GEMINI_MODEL`, then to Gemini's default.
 
 Both tools are stateless — each call is a fresh session. The orchestrator must pass any conversation history in the prompt itself.
 

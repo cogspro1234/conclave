@@ -27,10 +27,12 @@ const isWindows = process.platform === "win32";
 const CODEX_CMD = process.env.CONCLAVE_CODEX_CMD ?? (isWindows ? "codex.cmd" : "codex");
 const GEMINI_CMD = process.env.CONCLAVE_GEMINI_CMD ?? (isWindows ? "gemini.cmd" : "gemini");
 const TIMEOUT_MS = Number.parseInt(process.env.CONCLAVE_TIMEOUT_MS ?? "300000", 10);
+const DEFAULT_CODEX_MODEL = process.env.CONCLAVE_CODEX_MODEL ?? null;
+const DEFAULT_GEMINI_MODEL = process.env.CONCLAVE_GEMINI_MODEL ?? null;
 
 function quoteForCmd(arg) {
   // Wrap every arg in double quotes; escape internal " as \".
-  // Sufficient for our flags + literal markers (no user content goes through args — prompts use stdin).
+  // Sufficient for our flags + literal markers (prompts use stdin, never the command line).
   return `"${String(arg).replace(/"/g, '\\"')}"`;
 }
 
@@ -79,27 +81,26 @@ function runCli({ command, args, stdin }) {
   });
 }
 
-async function askCodex(prompt) {
-  return runCli({
-    command: CODEX_CMD,
-    args: ["exec", "-"],
-    stdin: prompt,
-  });
+async function askCodex(prompt, model) {
+  const m = model ?? DEFAULT_CODEX_MODEL;
+  const args = ["exec"];
+  if (m) args.push("-c", `model="${m}"`);
+  args.push("-");
+  return runCli({ command: CODEX_CMD, args, stdin: prompt });
 }
 
-async function askGemini(prompt) {
+async function askGemini(prompt, model) {
   // -p is required to enter non-interactive mode but rejects empty strings ("Not enough arguments following: p"),
-  // so pass a one-char placeholder and put the real prompt on stdin (which Gemini appends to -p's value).
-  // This keeps multiline / quoted prompts off the command line where they'd require fragile shell escaping.
-  return runCli({
-    command: GEMINI_CMD,
-    args: ["-p", ".", "-o", "text"],
-    stdin: prompt,
-  });
+  // so pass a one-char placeholder and put the real prompt on stdin (Gemini appends stdin to -p's value).
+  const m = model ?? DEFAULT_GEMINI_MODEL;
+  const args = ["-p", "."];
+  if (m) args.push("-m", m);
+  args.push("-o", "text");
+  return runCli({ command: GEMINI_CMD, args, stdin: prompt });
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.1.2" },
+  { name: "conclave", version: "0.2.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -118,6 +119,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "string",
             description: "The full prompt for Codex, including any context from prior rounds of deliberation.",
           },
+          model: {
+            type: "string",
+            description:
+              "Optional. Codex model identifier — passed via Codex's '-c model=\"<value>\"' override. " +
+              "Examples: 'gpt-5.5' (frontier), 'gpt-5.4' (default everyday), 'gpt-5.4-mini' (fast/cheap), " +
+              "'gpt-5.3-codex' (coding-tuned). Omit to use Codex's own default, or the CONCLAVE_CODEX_MODEL env var if set.",
+          },
         },
         required: ["prompt"],
       },
@@ -135,6 +143,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "string",
             description: "The full prompt for Gemini, including any context from prior rounds of deliberation.",
           },
+          model: {
+            type: "string",
+            description:
+              "Optional. Gemini model identifier — passed via Gemini's '-m <value>' flag. " +
+              "Examples: 'gemini-3-flash-preview' (newest full flash), 'gemini-2.5-flash' (stable), " +
+              "'gemini-2.5-flash-lite' (smallest). Omit to use Gemini's own default, or the CONCLAVE_GEMINI_MODEL env var if set.",
+          },
         },
         required: ["prompt"],
       },
@@ -146,8 +161,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
   try {
     let output;
-    if (name === "ask_codex") output = await askCodex(args.prompt);
-    else if (name === "ask_gemini") output = await askGemini(args.prompt);
+    if (name === "ask_codex") output = await askCodex(args.prompt, args.model);
+    else if (name === "ask_gemini") output = await askGemini(args.prompt, args.model);
     else throw new Error(`Unknown tool: ${name}`);
     return { content: [{ type: "text", text: output }] };
   } catch (err) {
