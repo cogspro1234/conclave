@@ -155,14 +155,19 @@ You can prefix the topic with optional flags (any order, can combine):
 /conclave:convene just deliberate normally on whether to add a CI step
 ```
 
-| Flag        | Effect                                                                        |
-| ----------- | ----------------------------------------------------------------------------- |
-| `--strong`  | Sends `tier: "strong"` — server picks model per [config](#configuration), defaults to Codex `gpt-5.5` and Gemini `gemini-3-flash-preview`. |
-| `--fast`    | Sends `tier: "fast"` — defaults to Codex `gpt-5.4-mini` and Gemini `gemini-2.5-flash-lite`. |
-| `--silent`  | Suppress all interim narration. Tool calls still happen; you only see the final verdict. |
-| _(none)_    | Server's configured default per provider (or each CLI's own default); full deliberation transcript shown. |
+| Flag                | Effect                                                                |
+| ------------------- | --------------------------------------------------------------------- |
+| `--strong`          | Sends `tier: "strong"` — server picks model per [config](#configuration), defaults to Codex `gpt-5.5` and Gemini `gemini-3-flash-preview`. |
+| `--fast`            | Sends `tier: "fast"` — defaults to Codex `gpt-5.4-mini` and Gemini `gemini-2.5-flash-lite`. |
+| `--silent`          | Suppress all interim narration. Tool calls still happen; you only see the final verdict. |
+| `--rounds N`        | Number of deliberation rounds. `1` = initial positions only, no rebuttal. `2` = default (initial + rebuttal). `3` = adds a final round where each voice gives its closing position after seeing the rebuttal. |
+| `--without-codex`   | Skip Codex entirely. Run as a 2-way deliberation (Claude + Gemini).   |
+| `--without-gemini`  | Skip Gemini entirely. Run as a 2-way deliberation (Claude + Codex).   |
+| _(no flags)_        | 2 rounds, both council members, server's configured default models, full transcript shown. |
 
-Natural-language phrasing works too — `/conclave en güçlü modellerle: ...`, `/conclave hızlı bir check: ...`, `/conclave kararı doğrudan ver: ...`.
+If a council member fails mid-deliberation (auth expired, quota hit, network), the conclave drops that voice and continues with the rest, noting the dropout in the synthesis — the deliberation no longer crashes when one CLI is unavailable.
+
+Natural-language phrasing works too — `/conclave en güçlü modellerle: ...`, `/conclave hızlı bir check: ...`, `/conclave kararı doğrudan ver: ...`, `/conclave Codex'siz: ...`, `/conclave 3 tur: ...`.
 
 To change which model each tier resolves to (e.g. you have ChatGPT Plus but no Gemini Pro and want `--strong` to stay on a free Gemini model), run the interactive picker: `npx conclave-config`. It writes `~/.conclave.json` and the MCP server reads it on startup — restart Claude Code to apply.
 

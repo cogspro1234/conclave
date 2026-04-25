@@ -1,7 +1,7 @@
 {
   "name": "conclave",
   "description": "Multi-model deliberation: Claude convenes Codex and Gemini via their CLIs in parallel rounds, then synthesizes a verdict — like a papal conclave waiting for white smoke.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "author": {
     "name": "Çağan Öncül",
     "url": "https://github.com/cogspro1234"
