@@ -157,26 +157,57 @@ You can prefix the topic with optional flags (any order, can combine):
 
 | Flag        | Effect                                                                        |
 | ----------- | ----------------------------------------------------------------------------- |
-| `--strong`  | Codex `gpt-5.5`, Gemini `gemini-3-flash-preview` — high-stakes calls.         |
-| `--fast`    | Codex `gpt-5.4-mini`, Gemini `gemini-2.5-flash-lite` — quick sanity checks.   |
+| `--strong`  | Sends `tier: "strong"` — server picks model per [config](#configuration), defaults to Codex `gpt-5.5` and Gemini `gemini-3-flash-preview`. |
+| `--fast`    | Sends `tier: "fast"` — defaults to Codex `gpt-5.4-mini` and Gemini `gemini-2.5-flash-lite`. |
 | `--silent`  | Suppress all interim narration. Tool calls still happen; you only see the final verdict. |
-| _(none)_    | Each CLI's default model, full deliberation transcript shown.                 |
+| _(none)_    | Server's configured default per provider (or each CLI's own default); full deliberation transcript shown. |
 
 Natural-language phrasing works too — `/conclave en güçlü modellerle: ...`, `/conclave hızlı bir check: ...`, `/conclave kararı doğrudan ver: ...`.
 
-The exact model strings above are baked into the slash command's body. To change them, edit the installed copy (`~/.claude/plugins/cache/conclave/conclave/<version>/commands/convene.md` for plugin install, or `~/.claude/commands/convene.md` for manual install) — note that plugin-install edits get overwritten on the next `claude plugin update`, so for persistent changes, fork the repo. To pin a different default at the MCP-server level (so even calls with no flag use a specific model), see the `CONCLAVE_CODEX_MODEL` / `CONCLAVE_GEMINI_MODEL` env vars in [Configuration](#configuration).
+To change which model each tier resolves to (e.g. you have ChatGPT Plus but no Gemini Pro and want `--strong` to stay on a free Gemini model), run the interactive picker: `npx conclave-config`. It writes `~/.conclave.json` and the MCP server reads it on startup — restart Claude Code to apply.
 
 ## Configuration
 
-Optional environment variables:
+### Picking models per tier (`~/.conclave.json`)
+
+Two ways to set which model `--strong`, `--fast`, and the no-flag default resolve to for each provider:
+
+**Inside Claude Code (recommended for plugin install):**
+
+```
+/conclave:config
+```
+
+Walks you through 6 picks (Codex × {default, strong, fast}, Gemini × {default, strong, fast}) using clickable choice prompts — pick from the preset list, or pick "Other" and type a custom model name.
+
+**From the terminal:**
+
+```bash
+npx conclave-config
+```
+
+Same picker, but as an interactive Node script. Useful for the manual install path or if you'd rather configure outside the chat.
+
+Either way, the result lands in `~/.conclave.json`:
+
+```json
+{
+  "codex":  { "default": "gpt-5.4", "strong": "gpt-5.5",          "fast": "gpt-5.4-mini" },
+  "gemini": { "default": null,      "strong": "gemini-2.5-flash", "fast": "gemini-2.5-flash-lite" }
+}
+```
+
+The MCP server reads this on startup — restart Claude Code after changes. Resolution order per call: explicit `model` arg → config tier → built-in fallback tier → config default → `CONCLAVE_*_MODEL` env var → CLI's own default.
+
+### Environment variables
 
 | Variable                 | Default                                  | Purpose                                              |
 | ------------------------ | ---------------------------------------- | ---------------------------------------------------- |
 | `CONCLAVE_CODEX_CMD`     | `codex.cmd` on Windows, `codex` else     | Path/name of the Codex CLI binary.                   |
 | `CONCLAVE_GEMINI_CMD`    | `gemini.cmd` on Windows, `gemini` else   | Path/name of the Gemini CLI binary.                  |
 | `CONCLAVE_TIMEOUT_MS`    | `300000` (5 min)                         | Per-call timeout. Long deliberations may need more.  |
-| `CONCLAVE_CODEX_MODEL`   | _(unset → CLI default)_                  | Default Codex model when the tool is called without `model`. Per-call `model` arg still wins. |
-| `CONCLAVE_GEMINI_MODEL`  | _(unset → CLI default)_                  | Default Gemini model when the tool is called without `model`. Per-call `model` arg still wins. |
+| `CONCLAVE_CODEX_MODEL`   | _(unset → CLI default)_                  | Last-resort default Codex model. Config file takes precedence; per-call `model` arg always wins. |
+| `CONCLAVE_GEMINI_MODEL`  | _(unset → CLI default)_                  | Last-resort default Gemini model. Config file takes precedence; per-call `model` arg always wins. |
 | `CONCLAVE_TRUST_DIR`     | user's home directory (`~`)              | Working directory for spawned CLIs. Codex refuses to start in untrusted dirs; this should point at a directory you've already trusted via `codex` (run `cd ~/<dir> && codex` once and accept the trust prompt). |
 
 Set them in the MCP server entry. Example (`claude mcp add` supports `-e`):
@@ -189,17 +220,17 @@ claude mcp add --scope user conclave \
 
 ## Tools
 
-### `ask_codex(prompt, model?)`
+### `ask_codex(prompt, model?, tier?)`
 
 Forwards a prompt to `codex exec -` (stdin mode). Returns the CLI's stdout.
 
-If `model` is provided, the server adds `-c model="<value>"` to override Codex's default. Otherwise it falls back to the `CONCLAVE_CODEX_MODEL` env var, then to whatever Codex itself defaults to.
+`model` (explicit string) wins if set. Otherwise, if `tier` is `"strong"` or `"fast"`, the server resolves it via `~/.conclave.json` → built-in fallback. Otherwise falls back to the config default → `CONCLAVE_CODEX_MODEL` → Codex's own default.
 
-### `ask_gemini(prompt, model?)`
+### `ask_gemini(prompt, model?, tier?)`
 
 Forwards a prompt to `gemini -p . -o text` with the prompt piped on stdin. Returns the CLI's stdout.
 
-If `model` is provided, the server adds `-m <value>`. Otherwise it falls back to `CONCLAVE_GEMINI_MODEL`, then to Gemini's default.
+Same resolution chain: `model` → `tier` (via config or fallback) → config default → `CONCLAVE_GEMINI_MODEL` → Gemini's own default.
 
 Both tools are stateless — each call is a fresh session. The orchestrator must pass any conversation history in the prompt itself.
 

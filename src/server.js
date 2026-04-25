@@ -22,7 +22,9 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { spawn } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 
 const isWindows = process.platform === "win32";
 const CODEX_CMD = process.env.CONCLAVE_CODEX_CMD ?? (isWindows ? "codex.cmd" : "codex");
@@ -34,6 +36,37 @@ const DEFAULT_GEMINI_MODEL = process.env.CONCLAVE_GEMINI_MODEL ?? null;
 // cwd from Claude Code, which can be any project. Force a stable, predictable cwd that the user
 // can trust once.
 const TRUST_DIR = process.env.CONCLAVE_TRUST_DIR ?? homedir();
+
+// User config: ~/.conclave.json, written by `conclave-config`. Per-tier model picks live here so
+// users can adjust defaults without touching env vars. Read once at startup; restart Claude Code
+// to reload.
+const CONFIG_PATH = join(homedir(), ".conclave.json");
+let userConfig = {};
+if (existsSync(CONFIG_PATH)) {
+  try {
+    userConfig = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
+  } catch (err) {
+    console.error(`conclave: ignoring malformed ${CONFIG_PATH}: ${err.message}`);
+  }
+}
+
+// Hardcoded last-resort tier mappings, used only if the user has no ~/.conclave.json entry for
+// the requested tier. Conservative picks that should work across most subscriptions.
+const FALLBACK_TIERS = {
+  codex: { strong: "gpt-5.5", fast: "gpt-5.4-mini" },
+  gemini: { strong: "gemini-3-flash-preview", fast: "gemini-2.5-flash-lite" },
+};
+
+function resolveModel(provider, { model, tier }) {
+  if (model) return model;
+  const cfg = userConfig[provider] ?? {};
+  if (tier && tier !== "default") {
+    if (cfg[tier] !== undefined) return cfg[tier];
+    return FALLBACK_TIERS[provider]?.[tier] ?? null;
+  }
+  if (cfg.default !== undefined) return cfg.default;
+  return provider === "codex" ? DEFAULT_CODEX_MODEL : DEFAULT_GEMINI_MODEL;
+}
 
 function quoteForCmd(arg) {
   // Wrap every arg in double quotes; escape internal " as \".
@@ -87,8 +120,8 @@ function runCli({ command, args, stdin }) {
   });
 }
 
-async function askCodex(prompt, model) {
-  const m = model ?? DEFAULT_CODEX_MODEL;
+async function askCodex(prompt, model, tier) {
+  const m = resolveModel("codex", { model, tier });
   // --skip-git-repo-check: codex exec otherwise requires the cwd to be a git repo (or a
   // pre-trusted dir, but headless mode appears to ignore the trust list anyway). The conclave
   // never has Codex touch files, so the git-repo guard is pure friction here.
@@ -98,11 +131,11 @@ async function askCodex(prompt, model) {
   return runCli({ command: CODEX_CMD, args, stdin: prompt });
 }
 
-async function askGemini(prompt, model) {
+async function askGemini(prompt, model, tier) {
   // -p is required to enter non-interactive mode but rejects empty strings ("Not enough arguments following: p"),
   // so pass a one-char placeholder and put the real prompt on stdin (Gemini appends stdin to -p's value).
   // --skip-trust trusts the current workspace for the session, mirroring askCodex's --skip-git-repo-check.
-  const m = model ?? DEFAULT_GEMINI_MODEL;
+  const m = resolveModel("gemini", { model, tier });
   const args = ["-p", ".", "--skip-trust"];
   if (m) args.push("-m", m);
   args.push("-o", "text");
@@ -110,7 +143,7 @@ async function askGemini(prompt, model) {
 }
 
 const server = new Server(
-  { name: "conclave", version: "0.5.2" },
+  { name: "conclave", version: "0.6.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -132,9 +165,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           model: {
             type: "string",
             description:
-              "Optional. Codex model identifier — passed via Codex's '-c model=\"<value>\"' override. " +
-              "Examples: 'gpt-5.5' (frontier), 'gpt-5.4' (default everyday), 'gpt-5.4-mini' (fast/cheap), " +
-              "'gpt-5.3-codex' (coding-tuned). Omit to use Codex's own default, or the CONCLAVE_CODEX_MODEL env var if set.",
+              "Optional. Explicit Codex model identifier — overrides any tier/config setting. " +
+              "Passed via Codex's '-c model=\"<value>\"' override. Examples: 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'.",
+          },
+          tier: {
+            type: "string",
+            enum: ["default", "strong", "fast"],
+            description:
+              "Optional. Tier alias — server resolves to a model via ~/.conclave.json (run `npx conclave-config` to set), " +
+              "falling back to built-in picks if unset. 'strong' = highest quality, 'fast' = cheapest. " +
+              "Ignored if 'model' is also passed.",
           },
         },
         required: ["prompt"],
@@ -156,9 +196,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           model: {
             type: "string",
             description:
-              "Optional. Gemini model identifier — passed via Gemini's '-m <value>' flag. " +
-              "Examples: 'gemini-3-flash-preview' (newest full flash), 'gemini-2.5-flash' (stable), " +
-              "'gemini-2.5-flash-lite' (smallest). Omit to use Gemini's own default, or the CONCLAVE_GEMINI_MODEL env var if set.",
+              "Optional. Explicit Gemini model identifier — overrides any tier/config setting. " +
+              "Passed via Gemini's '-m <value>' flag. Examples: 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'.",
+          },
+          tier: {
+            type: "string",
+            enum: ["default", "strong", "fast"],
+            description:
+              "Optional. Tier alias — server resolves to a model via ~/.conclave.json (run `npx conclave-config` to set), " +
+              "falling back to built-in picks if unset. 'strong' = highest quality, 'fast' = cheapest. " +
+              "Ignored if 'model' is also passed.",
           },
         },
         required: ["prompt"],
@@ -171,8 +218,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
   try {
     let output;
-    if (name === "ask_codex") output = await askCodex(args.prompt, args.model);
-    else if (name === "ask_gemini") output = await askGemini(args.prompt, args.model);
+    if (name === "ask_codex") output = await askCodex(args.prompt, args.model, args.tier);
+    else if (name === "ask_gemini") output = await askGemini(args.prompt, args.model, args.tier);
     else throw new Error(`Unknown tool: ${name}`);
     return { content: [{ type: "text", text: output }] };
   } catch (err) {

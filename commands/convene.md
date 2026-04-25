@@ -9,10 +9,12 @@ $ARGUMENTS
 
 **Parse $ARGUMENTS for flags at the start (any order, may repeat):**
 
-- `--strong` (or "en güçlü", "strongest", "kritik karar", "best models") → pass `model: "gpt-5.5"` to `ask_codex` and `model: "gemini-3-flash-preview"` to `ask_gemini`
-- `--fast` (or "hızlı", "fast", "quickly", "ucuz", "cheap") → pass `model: "gpt-5.4-mini"` to `ask_codex` and `model: "gemini-2.5-flash-lite"` to `ask_gemini`
+- `--strong` (or "en güçlü", "strongest", "kritik karar", "best models") → pass `tier: "strong"` to both `ask_codex` and `ask_gemini`
+- `--fast` (or "hızlı", "fast", "quickly", "ucuz", "cheap") → pass `tier: "fast"` to both `ask_codex` and `ask_gemini`
 - `--silent` (or "sessiz", "sus", "kararı doğrudan ver", "no narration") → suppress all interim narration. Don't write your own initial position, don't paraphrase out loud between rounds, don't comment on the deliberation. Do everything internally and emit only the final synthesis at the end. The tool calls themselves will still be visible in the UI but you stay silent between them.
-- no tier flag → omit the `model` parameter, let each CLI use its default
+- no tier flag → omit both `tier` and `model`, let the server pick its configured default
+
+The actual model strings behind `tier: "strong"` / `tier: "fast"` come from the user's `~/.conclave.json` (set via `npx conclave-config`), with built-in fallbacks if absent. Don't hardcode model names here.
 
 Strip the flag/intent words from the topic before sending it to the council members.
 
